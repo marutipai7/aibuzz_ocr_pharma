@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+
+{% block content %}
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Confirm Extracted Data</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <style>
+        .editable:hover {
+            background-color: #f8f9fa;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-5">
+        <h2>Please Verify Extracted Data</h2>
+        
+        <!-- Store Details Section -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h4>Store Details</h4>
+            </div>
+            <div class="card-body">
+                <form id="confirmForm" action="{{ url_for('confirm_data') }}" method="POST">
+                    {% for key, value in store_details.items() %}
+                    <div class="form-group">
+                        <label>{{ key }}</label>
+                        <input type="text" class="form-control store-detail-input" 
+                               name="store_details_{{ key }}" 
+                               value="{{ value }}" />
+                    </div>
+                    {% endfor %}
+                    
+                    <!-- Table Data Section -->
+                    <div class="table-responsive">
+                        <table class="table table-bordered">
+                            <thead>
+                                <tr>
+                                    {% for column in table_data[0].keys() %}
+                                    <th>{{ column }}</th>
+                                    {% endfor %}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for row in table_data %}
+                                <tr>
+                                    {% for key, value in row.items() %}
+                                    <td>
+                                        <input type="text" class="form-control" 
+                                               name="table_data_{{ loop.index0 }}_{{ key }}" 
+                                               value="{{ value }}" />
+                                    </td>
+                                    {% endfor %}
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <!-- Hidden fields for JSON data -->
+                    <input type="hidden" id="store_details_json" name="store_details" />
+                    <input type="hidden" id="table_data_json" name="table_data" />
+                    
+                    <div class="text-center mt-4">
+                        <button type="button" class="btn btn-secondary" onclick="window.location.href='/'">Cancel</button>
+                        <button type="submit" class="btn btn-primary" onclick="return prepareData()">Confirm and Process</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+    <script>
+        function prepareData() {
+            try {
+                // Collect store details
+                let storeDetails = {};
+                $('.store-detail-input').each(function() {
+                    let key = $(this).attr('name').replace('store_details_', '');
+                    storeDetails[key] = $(this).val();
+                });
+                
+                // Collect table data
+                let tableData = [];
+                let columns = [];
+                $('thead th').each(function() {
+                    columns.push($(this).text());
+                });
+                
+                let rowCount = $('tbody tr').length;
+                for(let i = 0; i < rowCount; i++) {
+                    let row = {};
+                    columns.forEach(function(column) {
+                        let value = $(`input[name="table_data_${i}_${column}"]`).val();
+                        row[column] = value;
+                    });
+                    tableData.push(row);
+                }
+                
+                // Set JSON data in hidden fields
+                $('#store_details_json').val(JSON.stringify(storeDetails));
+                $('#table_data_json').val(JSON.stringify(tableData));
+                
+                console.log('Store Details:', storeDetails);
+                console.log('Table Data:', tableData);
+                
+                return true;
+            } catch (error) {
+                console.error('Error preparing data:', error);
+                alert('Error preparing data. Please check the console for details.');
+                return false;
+            }
+        }
+    </script>
+</body>
+</html>
+{% endblock %} 

@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}OCR System{% endblock %}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .flash-messages {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+        }
+        .auth-container {
+            max-width: 500px;
+            margin: 50px auto;
+            padding: 20px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            border-radius: 8px;
+        }
+        .navbar-brand {
+            font-weight: bold;
+        }
+        .form-control:focus {
+            border-color: #80bdff;
+            box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25);
+        }
+        .weather-header {
+            background-color: #f8f9fa;
+            padding: 15px 0;
+            border-bottom: 1px solid #dee2e6;
+            margin-bottom: 20px;
+        }
+        .weather-info {
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        .weather-item {
+            text-align: center;
+            padding: 10px;
+            min-width: 120px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .weather-item i {
+            font-size: 24px;
+            margin-bottom: 5px;
+            color: #007bff;
+        }
+        .weather-item h6 {
+            margin-bottom: 5px;
+            color: #495057;
+        }
+        .weather-item p {
+            font-size: 1.1em;
+            font-weight: 500;
+            color: #212529;
+        }
+        .weather-item small {
+            color: #6c757d;
+            font-size: 0.8em;
+        }
+        .upload-form {
+            border: 2px dashed #ccc;
+            padding: 20px;
+            text-align: center;
+            margin: 20px 0;
+        }
+        .table-container {
+            margin-top: 30px;
+            overflow-x: auto;
+        }
+        .table th {
+            background-color: #f8f9fa;
+        }
+    </style>
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="{{ url_for('home') }}">OCR System</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    {% if 'username' in session %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('purchase') }}">Purchase</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('home') }}">Get Points Here</a>
+                    </li>
+                    {% endif %}
+                </ul>
+                <ul class="navbar-nav">
+                    {% if 'username' in session %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('profile') }}">Profile</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('logout') }}">Logout</a>
+                    </li>
+                    {% else %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('login') }}">Login</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('register') }}">Register</a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="flash-messages">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category if category != 'message' else 'info' }} alert-dismissible fade show">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+    </div>
+
+    <!-- Weather and Location Header -->
+    <div class="weather-header">
+        <div class="container">
+            <div class="weather-info">
+                <div class="weather-item">
+                    <i class="fas fa-map-marker-alt"></i>
+                    <h6>Location</h6>
+                    <p class="mb-0" id="locationDisplay">{{ location.City if location else 'Detecting...' }}, {{ location.state if location else '' }}</p>
+                </div>
+                {% if weather %}
+                <div class="weather-item">
+                    <i class="fas fa-temperature-high"></i>
+                    <h6>Temperature</h6>
+                    <p class="mb-0">{{ weather.Temperature }}°C</p>
+                </div>
+                <div class="weather-item">
+                    <i class="fas fa-tint"></i>
+                    <h6>Humidity</h6>
+                    <p class="mb-0">{{ weather.Humidity }}%</p>
+                </div>
+                <div class="weather-item">
+                    <i class="fas fa-wind"></i>
+                    <h6>Wind</h6>
+                    <p class="mb-0">{{ weather.Wind_Speed }} km/h</p>
+                    <small>{{ weather.Wind_Direction }}</small>
+                </div>
+                <div class="weather-item">
+                    <i class="fas fa-cloud"></i>
+                    <h6>Condition</h6>
+                    <p class="mb-0">{{ weather.Condition }}</p>
+                </div>
+                <div class="weather-item">
+                    <i class="fas fa-compress-arrows-alt"></i>
+                    <h6>Pressure</h6>
+                    <p class="mb-0">{{ weather.Pressure }} mb</p>
+                </div>
+                <div class="weather-item">
+                    <i class="fas fa-eye"></i>
+                    <h6>Visibility</h6>
+                    <p class="mb-0">{{ weather.Visibility }} km</p>
+                </div>
+                <div class="weather-item">
+                    <i class="fas fa-sun"></i>
+                    <h6>UV Index</h6>
+                    <p class="mb-0">{{ weather.UV_Index }}</p>
+                </div>
+                <div class="weather-item">
+                    <i class="fas fa-cloud-rain"></i>
+                    <h6>Precipitation</h6>
+                    <p class="mb-0">{{ weather.Precipitation }} mm</p>
+                </div>
+                {% endif %}
+                <div class="weather-item">
+                    <button id="updateLocationBtn" class="btn btn-primary" onclick="manualLocationUpdate()">
+                        <i class="fas fa-sync-alt"></i> Update Location
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        {% block content %}{% endblock %}
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let gettingLocation = false;
+        let lastLocationUpdate = null;
+        const UPDATE_INTERVAL = 300000; // 5 minutes in milliseconds
+        let lastKnownPosition = null;
+
+        async function getLocationDetails(position) {
+            console.log('Getting location details for coordinates:', {
+                latitude: position.coords.latitude,
+                longitude: position.coords.longitude
+            });
+
+            // Try multiple geocoding services in sequence
+            const geocodingServices = [
+                {
+                    name: 'OpenStreetMap',
+                    url: `https://nominatim.openstreetmap.org/reverse?format=json&lat=${position.coords.latitude}&lon=${position.coords.longitude}&zoom=18&addressdetails=1`,
+                    headers: {
+                        'User-Agent': 'DoclingOCR/1.0'
+                    },
+                    extract: (data) => ({
+                        city: data.address.city || data.address.town || data.address.village || data.address.suburb || 'Unknown City',
+                        state: data.address.state || 'Unknown State',
+                        country: data.address.country || 'Unknown Country',
+                        latitude: position.coords.latitude,
+                        longitude: position.coords.longitude
+                    })
+                },
+                {
+                    name: 'BigDataCloud',
+                    url: `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${position.coords.latitude}&longitude=${position.coords.longitude}&localityLanguage=en`,
+                    headers: {},
+                    extract: (data) => ({
+                        city: data.city || data.locality || 'Unknown City',
+                        state: data.principalSubdivision || 'Unknown State',
+                        country: data.countryName || 'Unknown Country',
+                        latitude: position.coords.latitude,
+                        longitude: position.coords.longitude
+                    })
+                }
+            ];
+
+            let lastError = null;
+            for (const service of geocodingServices) {
+                try {
+                    console.log(`Trying ${service.name} geocoding service...`);
+                    const response = await fetch(service.url, {
+                        headers: service.headers
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+
+                    const data = await response.json();
+                    console.log(`${service.name} response:`, data);
+
+                    const locationData = service.extract(data);
+                    
+                    // Validate the extracted data
+                    if (locationData.city === 'Unknown City' || !locationData.city || locationData.city.trim() === '') {
+                        console.warn(`${service.name} returned invalid city, trying next service...`);
+                        continue;
+                    }
+
+                    console.log(`Successfully got location from ${service.name}:`, locationData);
+                    return locationData;
+                } catch (error) {
+                    console.warn(`${service.name} geocoding failed:`, error);
+                    lastError = error;
+                }
+            }
+
+            // If all services fail, throw the last error
+            throw new Error(`All geocoding services failed. Last error: ${lastError?.message}`);
+        }
+
+        async function manualLocationUpdate() {
+            const button = document.getElementById('updateLocationBtn');
+            const originalContent = button.innerHTML;
+            
+            try {
+                // Disable button and show loading state
+                button.disabled = true;
+                button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Updating...';
+                
+                // Force a new location request
+                lastLocationUpdate = null;
+                gettingLocation = false;
+                
+                await getUserLocation(true);
+            } catch (error) {
+                console.error('Manual location update failed:', error);
+                alert('Failed to update location. Please try again.');
+            } finally {
+                // Reset button state
+                button.disabled = false;
+                button.innerHTML = originalContent;
+            }
+        }
+
+        function isCachedPosition(position) {
+            if (!lastKnownPosition) {
+                lastKnownPosition = position;
+                return false;
+            }
+
+            const timeDiff = position.timestamp - lastKnownPosition.timestamp;
+            const distanceDiff = calculateDistance(
+                position.coords.latitude,
+                position.coords.longitude,
+                lastKnownPosition.coords.latitude,
+                lastKnownPosition.coords.longitude
+            );
+
+            console.log('Position comparison:', {
+                timeDiff: `${timeDiff/1000} seconds`,
+                distanceDiff: `${distanceDiff} meters`,
+                currentAccuracy: `${position.coords.accuracy} meters`,
+                lastAccuracy: `${lastKnownPosition.coords.accuracy} meters`
+            });
+
+            // If position hasn't changed significantly and time difference is small, it's likely cached
+            const isCached = timeDiff < 1000 && distanceDiff < 10;
+            if (isCached) {
+                console.warn('Detected cached position, will request fresh location');
+            }
+
+            lastKnownPosition = position;
+            return isCached;
+        }
+
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371e3; // Earth's radius in meters
+            const φ1 = lat1 * Math.PI/180;
+            const φ2 = lat2 * Math.PI/180;
+            const Δφ = (lat2-lat1) * Math.PI/180;
+            const Δλ = (lon2-lon1) * Math.PI/180;
+
+            const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+                    Math.cos(φ1) * Math.cos(φ2) *
+                    Math.sin(Δλ/2) * Math.sin(Δλ/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+
+            return R * c; // Distance in meters
+        }
+
+        async function getUserLocation(isManualUpdate = false) {
+            if (gettingLocation) {
+                console.log('Already getting location, request ignored');
+                return;
+            }
+
+            const locationDisplay = document.getElementById('locationDisplay');
+            try {
+                gettingLocation = true;
+                locationDisplay.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Detecting location...';
+
+                // Force a fresh location request if manual update
+                const options = {
+                    enableHighAccuracy: true,
+                    timeout: 30000,           // Increased timeout to 30 seconds
+                    maximumAge: 0             // Force fresh location
+                };
+
+                console.log('Requesting location with options:', options);
+
+                const position = await new Promise((resolve, reject) => {
+                    if (!navigator.geolocation) {
+                        reject(new Error('Geolocation is not supported by your browser'));
+                        return;
+                    }
+
+                    // Remove the incorrect clearWatch call and directly request position
+                    navigator.geolocation.getCurrentPosition(
+                        async (position) => {
+                            try {
+                                // Check if this is a cached position
+                                if (isCachedPosition(position)) {
+                                    console.log('Retrying with fresh location request...');
+                                    // Force a fresh location request
+                                    navigator.geolocation.getCurrentPosition(
+                                        async (freshPosition) => {
+                                            try {
+                                                const locationData = await getLocationDetails(freshPosition);
+                                                updateLocationOnServer(locationData);
+                                            } catch (error) {
+                                                console.error('Error getting fresh location details:', error);
+                                                showError('Could not determine your location. Please try again.');
+                                            }
+                                        },
+                                        (error) => handleGeolocationError(error),
+                                        { ...options, maximumAge: 0 }
+                                    );
+                                    return;
+                                }
+
+                                const locationData = await getLocationDetails(position);
+                                updateLocationOnServer(locationData);
+                            } catch (error) {
+                                console.error('Error in location processing:', error);
+                                showError('Could not determine your location. Please try again.');
+                            }
+                        },
+                        (error) => handleGeolocationError(error),
+                        options
+                    );
+                });
+
+                // Get location details with retries
+                let locationData = null;
+                let attempts = 0;
+                const maxAttempts = 3;
+
+                while (!locationData && attempts < maxAttempts) {
+                    try {
+                        locationData = await getLocationDetails(position);
+                        console.log(`Got location data on attempt ${attempts + 1}:`, locationData);
+                    } catch (error) {
+                        console.warn(`Attempt ${attempts + 1} failed:`, error);
+                        attempts++;
+                        if (attempts < maxAttempts) {
+                            await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second before retry
+                        } else {
+                            throw error;
+                        }
+                    }
+                }
+
+                if (!locationData) {
+                    throw new Error('Failed to get location details after multiple attempts');
+                }
+
+                // Update server
+                const response = await fetch('/api/set-user-location', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        ...locationData,
+                        isManualUpdate: isManualUpdate
+                    })
+                });
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`Server error: ${response.status} - ${errorText}`);
+                }
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    // Update display
+                    locationDisplay.textContent = `${locationData.city}, ${locationData.state}`;
+                    lastLocationUpdate = Date.now();
+
+                    // Only reload if location or weather has changed
+                    if (result.locationChanged || result.weatherChanged) {
+                        window.location.reload();
+                    }
+                } else {
+                    throw new Error(result.error || 'Failed to update location');
+                }
+
+            } catch (error) {
+                console.error('Error in getUserLocation:', error);
+                handleLocationError(error);
+            } finally {
+                gettingLocation = false;
+            }
+        }
+
+        function handleLocationError(error) {
+            console.error('Location error:', error);
+            const locationDisplay = document.getElementById('locationDisplay');
+            
+            let message;
+            if (error.code) {
+                // Geolocation API errors
+                switch(error.code) {
+                    case 1: // PERMISSION_DENIED
+                        message = "Please enable location access in your browser settings.";
+                        locationDisplay.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Location access denied';
+                        break;
+                    case 2: // POSITION_UNAVAILABLE
+                        message = "Unable to detect your location. Please check your device settings.";
+                        locationDisplay.innerHTML = '<i class="fas fa-exclamation-circle"></i> Location unavailable';
+                        break;
+                    case 3: // TIMEOUT
+                        message = "Location request timed out. Please try again.";
+                        locationDisplay.innerHTML = '<i class="fas fa-clock"></i> Location request timed out';
+                        break;
+                    default:
+                        message = `Error updating location: ${error.message}`;
+                        locationDisplay.innerHTML = '<i class="fas fa-exclamation-circle"></i> Location error';
+                }
+            } else {
+                // Other errors
+                message = error.message || 'Unknown error occurred while updating location';
+                locationDisplay.innerHTML = '<i class="fas fa-exclamation-circle"></i> Location error';
+            }
+            
+            showError(message);
+        }
+
+        function showError(message) {
+            // Create a new alert element
+            const alertDiv = document.createElement('div');
+            alertDiv.className = 'alert alert-danger alert-dismissible fade show';
+            alertDiv.role = 'alert';
+            alertDiv.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            `;
+
+            // Add to flash-messages container
+            const flashMessages = document.querySelector('.flash-messages');
+            if (flashMessages) {
+                flashMessages.appendChild(alertDiv);
+                // Auto-dismiss after 5 seconds
+                setTimeout(() => {
+                    new bootstrap.Alert(alertDiv).close();
+                }, 5000);
+            } else {
+                console.error('Flash messages container not found');
+                alert(message); // Fallback to basic alert if container not found
+            }
+        }
+
+        async function updateLocationOnServer(locationData) {
+            try {
+                const response = await fetch('/api/set-user-location', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(locationData)
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    // Update display
+                    const locationDisplay = document.getElementById('locationDisplay');
+                    if (locationDisplay) {
+                        locationDisplay.textContent = `${locationData.city}, ${locationData.state}`;
+                    }
+                    
+                    // Only reload if location or weather has changed
+                    if (result.locationChanged || result.weatherChanged) {
+                        window.location.reload();
+                    }
+                    
+                    return result;
+                } else {
+                    throw new Error(result.error || 'Failed to update location');
+                }
+            } catch (error) {
+                console.error('Error updating location on server:', error);
+                throw error;
+            }
+        }
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initial location request
+            getUserLocation(false);
+        });
+
+        // Auto-dismiss flash messages after 5 seconds
+        setTimeout(function() {
+            document.querySelectorAll('.alert').forEach(function(alert) {
+                new bootstrap.Alert(alert).close();
+            });
+        }, 5000);
+    </script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html> 

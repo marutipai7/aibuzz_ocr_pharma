@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+
+{% block content %}
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Processing Results</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+</head>
+<body>
+    <div class="container mt-5">
+        {% if message %}
+        <div class="alert alert-success">
+            {{ message }}
+        </div>
+        {% endif %}
+        
+        {% if enriched_data is not none %}
+        <div class="card mb-4">
+            <div class="card-header">
+                <h4>Processed Data</h4>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-bordered table-striped">
+                        <thead>
+                            <tr>
+                                <th>Sr No</th>
+                                {% for field in ['patient_name', 'phone_number', 'email', 'patient_age', 'relationship', 'doctor_name', 'prescription_id', 'address', 'hospital_name', 'pharmacy_name', 'lab_name'] %}
+                                    {% if store_details.get(field) and store_details.get(field)|string|trim %}
+                                        <th>{{ field | replace('_', ' ') | title }}</th>
+                                    {% endif %}
+                                {% endfor %}
+                                {% for column in enriched_data.columns %}
+                                    {% if column != 'sr_no' %}
+                                        <th>{{ column }}</th>
+                                    {% endif %}
+                                {% endfor %}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for _, row in enriched_data.iterrows() %}
+                            <tr>
+                                <td>{{ row.sr_no }}</td>
+                                {% for field in ['patient_name', 'phone_number', 'email', 'patient_age', 'relationship', 'doctor_name', 'prescription_id', 'address', 'hospital_name', 'pharmacy_name', 'lab_name'] %}
+                                    {% if store_details.get(field) and store_details.get(field)|string|trim %}
+                                        <td>{{ store_details.get(field) }}</td>
+                                    {% endif %}
+                                {% endfor %}
+                                {% for column in enriched_data.columns %}
+                                    {% if column != 'sr_no' %}
+                                        <td>{{ row[column] }}</td>
+                                    {% endif %}
+                                {% endfor %}
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        
+        {% if medicine_matches %}
+        <div class="card mb-4">
+            <div class="card-header">
+                <h4>Medicine Matches</h4>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-bordered">
+                        <thead>
+                            <tr>
+                                <th>Original Name</th>
+                                <th>Matched Name</th>
+                                <th>Generic Name</th>
+                                <th>Manufacturer</th>
+                                <th>Match Type</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for match in medicine_matches %}
+                            <tr>
+                                <td>{{ match.original }}</td>
+                                <td>{{ match.matched_name }}</td>
+                                <td>{{ match.generic_name }}</td>
+                                <td>{{ match.manufacturer }}</td>
+                                <td>{{ match.match_type }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        
+        <div class="text-center">
+            <a href="/" class="btn btn-primary">Process Another Document</a>
+        </div>
+    </div>
+
+    <style>
+    .table-responsive {
+        margin-top: 20px;
+        overflow-x: auto;
+    }
+
+    .table th {
+        white-space: nowrap;
+        background-color: #f8f9fa;
+    }
+
+    .table td {
+        white-space: nowrap;
+    }
+    </style>
+</body>
+</html>
+{% endblock %} 

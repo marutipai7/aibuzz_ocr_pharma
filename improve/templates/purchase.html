@@ -1,0 +1,451 @@
+{% extends "base.html" %}
+
+{% block title %}Purchase - OCR System{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css">
+<style>
+    .invoice-container {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+        border: 1px solid #ddd;
+        box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        background-color: white;
+    }
+    .invoice-header {
+        border-bottom: 2px solid #007bff;
+        padding-bottom: 10px;
+        margin-bottom: 20px;
+    }
+    .invoice-table th {
+        background-color: #007bff;
+        color: white;
+    }
+    .invoice-footer {
+        margin-top: 30px;
+        border-top: 1px solid #ddd;
+        padding-top: 15px;
+    }
+    .signature-area {
+        margin-top: 50px;
+        text-align: right;
+    }
+    .download-options {
+        margin-top: 20px;
+        display: flex;
+        justify-content: center;
+        gap: 10px;
+    }
+    #invoicePreview {
+        display: none;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1 class="mb-4">Purchase Invoice Generator</h1>
+        
+        <div id="uploadSection">
+            <p class="lead">Upload a prescription or bill to generate an invoice</p>
+            
+            <form method="POST" action="{{ url_for('purchase') }}" enctype="multipart/form-data" class="upload-form">
+                <div class="mb-3">
+                    <label for="invoice" class="form-label">Select Prescription or Bill Image</label>
+                    <input type="file" class="form-control" id="invoice" name="invoice" accept=".pdf,.png,.jpg,.jpeg">
+                </div>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-upload me-2"></i> Process Document
+                </button>
+            </form>
+        </div>
+        
+        {% if extracted_data %}
+        <div id="editSection" class="mt-5">
+            <h2>Edit Extracted Data</h2>
+            <p>Please review and edit the extracted information before generating the invoice.</p>
+            
+            <form id="confirmForm" method="POST" action="{{ url_for('confirm_purchase') }}">
+                <input type="hidden" name="document_id" value="{{ document_id }}">
+                
+                <div class="mb-4">
+                    <h4>Store Details</h4>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="pharmacy_name" class="form-label">Pharmacy Name</label>
+                            <input type="text" class="form-control" id="pharmacy_name" name="pharmacy_name" 
+                                   value="{{ store_details.pharmacy_name|default('') }}">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="address" class="form-label">Address</label>
+                            <input type="text" class="form-control" id="address" name="address" 
+                                   value="{{ store_details.address|default('') }}">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="phone" class="form-label">Phone</label>
+                            <input type="text" class="form-control" id="phone" name="phone" 
+                                   value="{{ store_details.phone_number|default('') }}">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="email" class="form-label">Email</label>
+                            <input type="email" class="form-control" id="email" name="email" 
+                                   value="{{ store_details.email|default('') }}">
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mb-4">
+                    <h4>Patient Details</h4>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="patient_name" class="form-label">Patient Name</label>
+                            <input type="text" class="form-control" id="patient_name" name="patient_name" 
+                                   value="{{ store_details.patient_name|default('') }}">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="patient_age" class="form-label">Age</label>
+                            <input type="text" class="form-control" id="patient_age" name="patient_age" 
+                                   value="{{ store_details.patient_age|default('') }}">
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mb-4">
+                    <h4>Medicine Details</h4>
+                    <div class="table-responsive">
+                        <table class="table table-bordered" id="medicineTable">
+                            <thead>
+                                <tr>
+                                    <th>Medicine Name</th>
+                                    <th>Manufacturer</th>
+                                    <th>Packaging</th>
+                                    <th>Quantity</th>
+                                    <th>Rate</th>
+                                    <th>Discount</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for medicine in extracted_data %}
+                                <tr>
+                                    <td>
+                                        <input type="text" class="form-control" name="medicine_name[]" value="{{ medicine.medicine_name|default('') }}">
+                                    </td>
+                                    <td>
+                                        <input type="text" class="form-control" name="manufacturer[]" value="{{ medicine.manufacturer|default('') }}">
+                                    </td>
+                                    <td>
+                                        <input type="text" class="form-control" name="packaging[]" value="{{ medicine.packaging|default('') }}">
+                                    </td>
+                                    <td>
+                                        <input type="number" class="form-control qty-input" name="quantity[]" value="{{ medicine.quantity|default('1') }}" min="1">
+                                    </td>
+                                    <td>
+                                        <input type="number" class="form-control rate-input" name="rate[]" value="{{ medicine.rate|default('0') }}" step="0.01">
+                                    </td>
+                                    <td>
+                                        <input type="number" class="form-control discount-input" name="discount[]" value="{{ medicine.discount|default('0') }}" step="0.01">
+                                    </td>
+                                    <td>
+                                        <button type="button" class="btn btn-danger btn-sm remove-row">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    <button type="button" class="btn btn-secondary" id="addMedicineRow">
+                        <i class="fas fa-plus"></i> Add Medicine
+                    </button>
+                </div>
+                
+                <div class="mb-4">
+                    <h4>Invoice Settings</h4>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="overall_discount" class="form-label">Overall Discount (%)</label>
+                            <input type="number" class="form-control" id="overall_discount" name="overall_discount" value="0" min="0" max="100">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="gst_rate" class="form-label">GST Rate (%)</label>
+                            <input type="number" class="form-control" id="gst_rate" name="gst_rate" value="12" min="0" max="28">
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-file-invoice me-2"></i> Generate Invoice
+                    </button>
+                </div>
+            </form>
+        </div>
+        {% endif %}
+        
+        {% if invoice_data %}
+        <div id="invoicePreview" class="mt-5">
+            <div class="invoice-container" id="invoiceContent">
+                <div class="invoice-header">
+                    <div class="row">
+                        <div class="col-8">
+                            <h2>{{ invoice_data.pharmacy_name }}</h2>
+                            <p>{{ invoice_data.address }}</p>
+                            <p>Phone: {{ invoice_data.phone }} | Email: {{ invoice_data.email }}</p>
+                        </div>
+                        <div class="col-4 text-end">
+                            <h3>INVOICE</h3>
+                            <p>Date: {{ invoice_data.date }}</p>
+                            <p>Invoice #: {{ invoice_data.invoice_number }}</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="row mb-4">
+                    <div class="col-6">
+                        <h5>Bill To:</h5>
+                        <p><strong>{{ invoice_data.patient_name }}</strong></p>
+                        <p>Age: {{ invoice_data.patient_age }}</p>
+                    </div>
+                </div>
+                
+                <div class="table-responsive">
+                    <table class="table table-bordered invoice-table">
+                        <thead>
+                            <tr>
+                                <th>Meds name</th>
+                                <th>Manufacturer</th>
+                                <th>Packaging</th>
+                                <th>Qty</th>
+                                <th>Rate</th>
+                                <th>Discount</th>
+                                <th>Taxable Amnt</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in invoice_data.items %}
+                            <tr>
+                                <td>{{ item.medicine_name }}</td>
+                                <td>{{ item.manufacturer }}</td>
+                                <td>{{ item.packaging }}</td>
+                                <td>{{ item.quantity }}</td>
+                                <td>{{ item.rate }}</td>
+                                <td>{{ item.discount }}</td>
+                                <td>{{ item.taxable_amount }}</td>
+                            </tr>
+                            {% endfor %}
+                            <tr>
+                                <td colspan="5"></td>
+                                <td><strong>TOTAL</strong></td>
+                                <td>{{ invoice_data.total_discount }}</td>
+                                <td>{{ invoice_data.subtotal }}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="row">
+                    <div class="col-6">
+                        <p>Payment Method: Cash/Card</p>
+                    </div>
+                    <div class="col-6">
+                        <table class="table table-sm">
+                            <tr>
+                                <td>Subtotal After Discount</td>
+                                <td>{{ invoice_data.subtotal }}</td>
+                            </tr>
+                            <tr>
+                                <td>Meds (after discount)</td>
+                                <td>{{ invoice_data.subtotal }}</td>
+                            </tr>
+                            <tr>
+                                <td>GST on Meds ({{ invoice_data.gst_rate }}%)</td>
+                                <td>{{ invoice_data.gst_amount }}</td>
+                            </tr>
+                            <tr class="table-primary">
+                                <td><strong>Subtotal Meds + GST</strong></td>
+                                <td><strong>{{ invoice_data.grand_total }}</strong></td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+                
+                <div class="invoice-footer">
+                    <p>Thank you for your purchase!</p>
+                    <div class="signature-area">
+                        <p>Authorized Signature</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="download-options">
+                <button class="btn btn-success" id="downloadPDF">
+                    <i class="fas fa-file-pdf me-2"></i> Download as PDF
+                </button>
+                <button class="btn btn-info" id="downloadPNG">
+                    <i class="fas fa-file-image me-2"></i> Download as PNG
+                </button>
+                <button class="btn btn-secondary" id="downloadJPG">
+                    <i class="fas fa-file-image me-2"></i> Download as JPG
+                </button>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Show appropriate section based on data availability
+        let hasInvoiceData = false;
+        let hasExtractedData = false;
+        
+        {% if invoice_data is defined and invoice_data %}
+            hasInvoiceData = true;
+        {% endif %}
+        
+        {% if extracted_data is defined and extracted_data %}
+            hasExtractedData = true;
+        {% endif %}
+        
+        // Control visibility of sections
+        const uploadSection = document.getElementById('uploadSection');
+        const editSection = document.getElementById('editSection');
+        const invoicePreview = document.getElementById('invoicePreview');
+        
+        if (hasInvoiceData) {
+            if(uploadSection) uploadSection.style.display = 'none';
+            if(editSection) editSection.style.display = 'none';
+            if(invoicePreview) invoicePreview.style.display = 'block';
+        } else if (hasExtractedData) {
+            if(uploadSection) uploadSection.style.display = 'none';
+            if(editSection) editSection.style.display = 'block';
+            if(invoicePreview) invoicePreview.style.display = 'none';
+        } else {
+            if(uploadSection) uploadSection.style.display = 'block';
+            if(editSection) editSection.style.display = 'none';
+            if(invoicePreview) invoicePreview.style.display = 'none';
+        }
+        
+        // Add medicine row functionality
+        const addMedicineRow = document.getElementById('addMedicineRow');
+        if (addMedicineRow) {
+            addMedicineRow.addEventListener('click', function() {
+                const tbody = document.querySelector('#medicineTable tbody');
+                const newRow = document.createElement('tr');
+                newRow.innerHTML = `
+                    <td>
+                        <input type="text" class="form-control" name="medicine_name[]" value="">
+                    </td>
+                    <td>
+                        <input type="text" class="form-control" name="manufacturer[]" value="">
+                    </td>
+                    <td>
+                        <input type="text" class="form-control" name="packaging[]" value="">
+                    </td>
+                    <td>
+                        <input type="number" class="form-control qty-input" name="quantity[]" value="1" min="1">
+                    </td>
+                    <td>
+                        <input type="number" class="form-control rate-input" name="rate[]" value="0" step="0.01">
+                    </td>
+                    <td>
+                        <input type="number" class="form-control discount-input" name="discount[]" value="0" step="0.01">
+                    </td>
+                    <td>
+                        <button type="button" class="btn btn-danger btn-sm remove-row">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(newRow);
+                
+                // Add event listener to the new remove button
+                const removeButton = newRow.querySelector('.remove-row');
+                removeButton.addEventListener('click', function() {
+                    tbody.removeChild(newRow);
+                });
+            });
+        }
+        
+        // Remove medicine row functionality
+        document.querySelectorAll('.remove-row').forEach(button => {
+            button.addEventListener('click', function() {
+                const row = this.closest('tr');
+                row.parentNode.removeChild(row);
+            });
+        });
+        
+        // PDF download functionality
+        const downloadPDF = document.getElementById('downloadPDF');
+        if (downloadPDF) {
+            downloadPDF.addEventListener('click', function() {
+                const { jsPDF } = window.jspdf;
+                const invoiceContent = document.getElementById('invoiceContent');
+                
+                html2canvas(invoiceContent, {
+                    scale: 2,
+                    useCORS: true,
+                    logging: false
+                }).then(canvas => {
+                    const imgData = canvas.toDataURL('image/jpeg', 1.0);
+                    const pdf = new jsPDF('p', 'mm', 'a4');
+                    const pdfWidth = pdf.internal.pageSize.getWidth();
+                    const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+                    
+                    pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+                    pdf.save('invoice.pdf');
+                });
+            });
+        }
+        
+        // PNG download functionality
+        const downloadPNG = document.getElementById('downloadPNG');
+        if (downloadPNG) {
+            downloadPNG.addEventListener('click', function() {
+                const invoiceContent = document.getElementById('invoiceContent');
+                
+                html2canvas(invoiceContent, {
+                    scale: 2,
+                    useCORS: true,
+                    logging: false
+                }).then(canvas => {
+                    const link = document.createElement('a');
+                    link.download = 'invoice.png';
+                    link.href = canvas.toDataURL('image/png');
+                    link.click();
+                });
+            });
+        }
+        
+        // JPG download functionality
+        const downloadJPG = document.getElementById('downloadJPG');
+        if (downloadJPG) {
+            downloadJPG.addEventListener('click', function() {
+                const invoiceContent = document.getElementById('invoiceContent');
+                
+                html2canvas(invoiceContent, {
+                    scale: 2,
+                    useCORS: true,
+                    logging: false
+                }).then(canvas => {
+                    const link = document.createElement('a');
+                    link.download = 'invoice.jpg';
+                    link.href = canvas.toDataURL('image/jpeg', 0.9);
+                    link.click();
+                });
+            });
+        }
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,325 @@
+{% extends "base.html" %}
+
+{% block title %}Profile - OCR System{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row">
+        <!-- User Profile Card -->
+        <div class="col-lg-4">
+            <div class="card mb-4">
+                <div class="card-body text-center">
+                    <img src="{{ url_for('static', filename='img/avatar.png') }}" alt="avatar" class="rounded-circle img-fluid" style="width: 150px;">
+                    <h5 class="my-3">{{ user.full_name }}</h5>
+                    <p class="text-muted mb-1">{{ user.username }}</p>
+                    <p class="text-muted mb-4">{{ user.email }}</p>
+                    <div class="d-flex justify-content-center mb-2">
+                        <a href="{{ url_for('edit_profile') }}" class="btn btn-primary">Edit Profile</a>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Statistics Card -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h6 class="card-title mb-4">Statistics</h6>
+                    <div class="row">
+                        <div class="col-sm-6">
+                            <p class="mb-0">Total Uploads</p>
+                        </div>
+                        <div class="col-sm-6">
+                            <p class="text-muted mb-0">{{ total_uploads }}</p>
+                        </div>
+                    </div>
+                    <hr>
+                    <div class="row">
+                        <div class="col-sm-6">
+                            <p class="mb-0">Total Amount</p>
+                        </div>
+                        <div class="col-sm-6">
+                            <p class="text-muted mb-0">₹{{ "%.2f"|format(total_amount) }}</p>
+                        </div>
+                    </div>
+                    <hr>
+                    <div class="row">
+                        <div class="col-sm-6">
+                            <p class="mb-0">Patients</p>
+                        </div>
+                        <div class="col-sm-6">
+                            <p class="text-muted mb-0">{{ patient_count }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Patient List Card -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h6 class="card-title mb-4">My Patients</h6>
+                    {% if patients %}
+                        <div class="list-group">
+                            {% for patient in patients %}
+                                <div class="list-group-item d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h6 class="mb-0">{{ patient.name }}</h6>
+                                        <small class="text-muted">{{ patient.relationship }}</small>
+                                    </div>
+                                    <button class="btn btn-danger btn-sm delete-patient" 
+                                            data-patient-id="{{ patient.patient_id }}"
+                                            data-patient-name="{{ patient.name }}">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <p class="text-muted mb-0">No patients added yet.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Recent Activity -->
+        <div class="col-lg-8">
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h6 class="card-title mb-4">Recent Activity</h6>
+                    {% if recent_activity %}
+                        <div class="table-responsive">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>Store</th>
+                                        <th>Patient</th>
+                                        <th>Amount</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for bill in recent_activity %}
+                                    <tr>
+                                        <td>
+                                            {% if bill.upload_time is string %}
+                                                {{ bill.upload_time }}
+                                            {% else %}
+                                                {{ bill.upload_time.strftime('%b %d, %Y') }}
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ bill.store }}</td>
+                                        <td>{{ bill.patient_name }}</td>
+                                        <td>₹{{ "%.2f"|format(bill.amount|float) }}</td>
+                                        <td>
+                                            <button type="button" class="btn btn-sm btn-info" 
+                                                    data-bs-toggle="modal" 
+                                                    data-bs-target="#billModal{{ loop.index }}">
+                                                View Bill
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <!-- Bill Detail Modals -->
+                        {% for bill in recent_activity %}
+                        <div class="modal fade" id="billModal{{ loop.index }}" tabindex="-1" aria-labelledby="billModalLabel{{ loop.index }}" aria-hidden="true">
+                            <div class="modal-dialog modal-lg">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title" id="billModalLabel{{ loop.index }}">Bill Details</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <div class="bill-header mb-4">
+                                            <div class="row">
+                                                <div class="col-md-6">
+                                                    <p><strong>Store:</strong> {{ bill.store }}</p>
+                                                    <p><strong>Patient:</strong> {{ bill.patient_name }}</p>
+                                                    <p><strong>Relationship:</strong> {{ bill.relationship|default('Self', true) }}</p>
+                                                </div>
+                                                <div class="col-md-6 text-md-end">
+                                                    <p><strong>Date:</strong> 
+                                                        {% if bill.upload_time is string %}
+                                                            {{ bill.upload_time }}
+                                                        {% else %}
+                                                            {{ bill.upload_time.strftime('%B %d, %Y') }}
+                                                        {% endif %}
+                                                    </p>
+                                                    <p><strong>Total Amount:</strong> ₹{{ "%.2f"|format(bill.amount|float) }}</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        {% if bill.original_data %}
+                                        <div class="table-responsive">
+                                            <table class="table table-bordered">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Sr. No</th>
+                                                        <th>Medicine Name</th>
+                                                        <th>Quantity</th>
+                                                        <th>Rate</th>
+                                                        <th>Amount</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {% for item in bill.original_data %}
+                                                    <tr>
+                                                        <td>{{ item.sr_no }}</td>
+                                                        <td>{{ item.medicine_name }}</td>
+                                                        <td>{{ item.quantity }}</td>
+                                                        <td>₹{{ "%.2f"|format(item.rate|float) if item.rate else "0.00" }}</td>
+                                                        <td>₹{{ "%.2f"|format(item.amount|float) if item.amount else "0.00" }}</td>
+                                                    </tr>
+                                                    {% endfor %}
+                                                </tbody>
+                                                <tfoot>
+                                                    <tr>
+                                                        <td colspan="4" class="text-end"><strong>Total Amount:</strong></td>
+                                                        <td><strong>₹{{ "%.2f"|format(bill.amount|float) }}</strong></td>
+                                                    </tr>
+                                                </tfoot>
+                                            </table>
+                                        </div>
+                                        {% else %}
+                                        <div class="alert alert-info">
+                                            Detailed bill information not available.
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="alert alert-info">
+                            No recent uploads found.
+                        </div>
+                    {% endif %}
+                    <div class="text-end mt-3">
+                        <a href="{{ url_for('view_bills') }}" class="btn btn-primary btn-sm">View All Bills</a>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Account Details -->
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="card-title mb-4">Account Details</h6>
+                    <div class="row">
+                        <div class="col-sm-3">
+                            <p class="mb-0">Username</p>
+                        </div>
+                        <div class="col-sm-9">
+                            <p class="text-muted mb-0">{{ user.username }}</p>
+                        </div>
+                    </div>
+                    <hr>
+                    <div class="row">
+                        <div class="col-sm-3">
+                            <p class="mb-0">Full Name</p>
+                        </div>
+                        <div class="col-sm-9">
+                            <p class="text-muted mb-0">{{ user.full_name }}</p>
+                        </div>
+                    </div>
+                    <hr>
+                    <div class="row">
+                        <div class="col-sm-3">
+                            <p class="mb-0">Email</p>
+                        </div>
+                        <div class="col-sm-9">
+                            <p class="text-muted mb-0">{{ user.email }}</p>
+                        </div>
+                    </div>
+                    <hr>
+                    <div class="row">
+                        <div class="col-sm-3">
+                            <p class="mb-0">Account Created</p>
+                        </div>
+                        <div class="col-sm-9">
+                            <p class="text-muted mb-0">
+                                {% if user.created_at is string %}
+                                    {{ user.created_at }}
+                                {% else %}
+                                    {{ user.created_at.strftime('%B %d, %Y') }}
+                                {% endif %}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Patient Confirmation Modal -->
+<div class="modal fade" id="deletePatientModal" tabindex="-1" aria-labelledby="deletePatientModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deletePatientModalLabel">Confirm Delete</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                Are you sure you want to delete patient <span id="patientNameSpan"></span>? This action cannot be undone and will delete all associated bills and records.
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteBtn">Delete</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    let patientToDelete = null;
+    const deleteModal = new bootstrap.Modal(document.getElementById('deletePatientModal'));
+
+    // Handle delete button clicks
+    document.querySelectorAll('.delete-patient').forEach(button => {
+        button.addEventListener('click', function() {
+            const patientId = this.dataset.patientId;
+            const patientName = this.dataset.patientName;
+            patientToDelete = patientId;
+            document.getElementById('patientNameSpan').textContent = patientName;
+            deleteModal.show();
+        });
+    });
+
+    // Handle confirm delete
+    document.getElementById('confirmDeleteBtn').addEventListener('click', function() {
+        if (patientToDelete) {
+            fetch('/delete-patient/' + patientToDelete, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Reload the page to show updated patient list
+                    window.location.reload();
+                } else {
+                    alert('Error deleting patient: ' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error deleting patient. Please try again.');
+            })
+            .finally(() => {
+                deleteModal.hide();
+            });
+        }
+    });
+});
+</script>
+{% endblock %} 

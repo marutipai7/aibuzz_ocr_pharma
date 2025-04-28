@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+
+{% block title %}Bills - OCR System{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <h2 class="mb-4">All Bills</h2>
+    
+    {% if bills %}
+        <div class="table-responsive">
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Store</th>
+                        <th>Patient</th>
+                        <th>Relationship</th>
+                        <th>Amount</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for bill in bills %}
+                    <tr>
+                        <td>
+                            {% if bill.upload_time is string %}
+                                {{ bill.upload_time.split('T')[0] }}
+                            {% else %}
+                                {{ bill.upload_time.strftime('%Y-%m-%d') }}
+                            {% endif %}
+                        </td>
+                        <td>{{ bill.store }}</td>
+                        <td>{{ bill.patient_name }}</td>
+                        <td>{{ bill.relationship|default('Self', true) }}</td>
+                        <td>₹{{ "%.2f"|format(bill.amount|float) }}</td>
+                        <td>
+                            <button type="button" class="btn btn-sm btn-info" 
+                                    data-bs-toggle="modal" 
+                                    data-bs-target="#billModal{{ loop.index }}">
+                                View Details
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Bill Detail Modals -->
+        {% for bill in bills %}
+        <div class="modal fade" id="billModal{{ loop.index }}" tabindex="-1" aria-labelledby="billModalLabel{{ loop.index }}" aria-hidden="true">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="billModalLabel{{ loop.index }}">Bill Details</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="bill-header mb-4">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <p><strong>Store:</strong> {{ bill.store }}</p>
+                                    <p><strong>Patient:</strong> {{ bill.patient_name }}</p>
+                                    <p><strong>Relationship:</strong> {{ bill.relationship|default('Self', true) }}</p>
+                                </div>
+                                <div class="col-md-6 text-md-end">
+                                    <p><strong>Date:</strong> 
+                                        {% if bill.upload_time is string %}
+                                            {{ bill.upload_time.split('T')[0] }}
+                                        {% else %}
+                                            {{ bill.upload_time.strftime('%Y-%m-%d') }}
+                                        {% endif %}
+                                    </p>
+                                    <p><strong>Total Amount:</strong> ₹{{ "%.2f"|format(bill.amount|float) }}</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        {% if bill.original_data %}
+                        <div class="table-responsive">
+                            <table class="table table-bordered">
+                                <thead>
+                                    <tr>
+                                        <th>Sr. No</th>
+                                        <th>Medicine Name</th>
+                                        <th>Quantity</th>
+                                        <th>Rate</th>
+                                        <th>Amount</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for item in bill.original_data %}
+                                    <tr>
+                                        <td>{{ item.sr_no }}</td>
+                                        <td>{{ item.medicine_name }}</td>
+                                        <td>{{ item.quantity }}</td>
+                                        <td>₹{{ "%.2f"|format(item.rate|float) if item.rate else "0.00" }}</td>
+                                        <td>₹{{ "%.2f"|format(item.amount|float) if item.amount else "0.00" }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                                <tfoot>
+                                    <tr>
+                                        <td colspan="4" class="text-end"><strong>Total Amount:</strong></td>
+                                        <td><strong>₹{{ "%.2f"|format(bill.amount|float) }}</strong></td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                        {% else %}
+                        <div class="alert alert-info">
+                            Detailed bill information not available.
+                        </div>
+                        {% endif %}
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <div class="alert alert-info">
+            No bills found. Upload some prescriptions to see them here.
+        </div>
+    {% endif %}
+</div>
+{% endblock %} 

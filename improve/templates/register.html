@@ -1,0 +1,345 @@
+{% extends "base.html" %}
+
+{% block title %}Register - OCR System{% endblock %}
+
+{% block content %}
+<div class="auth-container">
+    <h2 class="text-center mb-4">Register</h2>
+    <form method="POST" action="{{ url_for('register') }}" id="registerForm">
+        <div class="mb-3">
+            <label for="username" class="form-label">Username</label>
+            <input type="text" class="form-control" id="username" name="username" 
+                   pattern="^[a-zA-Z0-9_-]{3,16}$" required>
+            <small class="form-text text-muted">
+                3-16 characters, letters, numbers, underscore, or hyphen only
+            </small>
+            <div id="username-feedback" class="invalid-feedback"></div>
+        </div>
+        <div class="mb-3">
+            <label for="email" class="form-label">Email address</label>
+            <input type="email" class="form-control" id="email" name="email" required>
+            <div id="email-feedback" class="invalid-feedback"></div>
+        </div>
+        <div class="mb-3">
+            <label for="password" class="form-label">Password</label>
+            <input type="password" class="form-control" id="password" name="password" 
+                   minlength="8" required>
+            <small class="form-text text-muted">
+                Minimum 8 characters, must include uppercase, lowercase, number, and special character
+            </small>
+            <div id="password-feedback" class="invalid-feedback"></div>
+        </div>
+        <div class="mb-3">
+            <label for="confirm_password" class="form-label">Confirm Password</label>
+            <input type="password" class="form-control" id="confirm_password" name="confirm_password" 
+                   minlength="8" required>
+            <div id="confirm-password-feedback" class="invalid-feedback"></div>
+        </div>
+        <div class="mb-3">
+            <label for="full_name" class="form-label">Full Name</label>
+            <input type="text" class="form-control" id="full_name" name="full_name" required>
+        </div>
+        <div class="mb-3">
+            <label for="mobile" class="form-label">Mobile Number</label>
+            <input type="tel" class="form-control" id="mobile" name="mobile" pattern="[6-9][0-9]{9}" required>
+            <small class="form-text text-muted">Enter 10 digit mobile number starting with 6-9</small>
+            <div id="mobile-feedback" class="invalid-feedback"></div>
+        </div>
+        <div class="mb-3">
+            <label for="city" class="form-label">City</label>
+            <input type="text" class="form-control" id="city" name="city" required>
+        </div>
+        <div class="mb-3">
+            <label for="state" class="form-label">State</label>
+            <input type="text" class="form-control" id="state" name="state" required>
+        </div>
+        <!-- Hidden fields for location -->
+        <input type="hidden" id="latitude" name="latitude">
+        <input type="hidden" id="longitude" name="longitude">
+        
+        <div class="d-grid gap-2">
+            <button type="submit" class="btn btn-primary" id="submitBtn" disabled>Register</button>
+        </div>
+    </form>
+    <div class="text-center mt-3">
+        <p>Already have an account? <a href="{{ url_for('login') }}">Login here</a></p>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const usernameInput = document.getElementById('username');
+    const emailInput = document.getElementById('email');
+    const passwordInput = document.getElementById('password');
+    const confirmPasswordInput = document.getElementById('confirm_password');
+    const mobileInput = document.getElementById('mobile');
+    const usernameFeedback = document.getElementById('username-feedback');
+    const emailFeedback = document.getElementById('email-feedback');
+    const passwordFeedback = document.getElementById('password-feedback');
+    const confirmPasswordFeedback = document.getElementById('confirm-password-feedback');
+    const mobileFeedback = document.getElementById('mobile-feedback');
+    const submitBtn = document.getElementById('submitBtn');
+    
+    let usernameTimer;
+    let emailTimer;
+    let isUsernameValid = false;
+    let isEmailValid = false;
+    let isPasswordValid = false;
+    let isPasswordMatch = false;
+    let isMobileValid = false;
+
+    function updateSubmitButton() {
+        submitBtn.disabled = !(isUsernameValid && isEmailValid && isPasswordValid && isPasswordMatch && isMobileValid);
+    }
+
+    function validatePassword(password) {
+        const minLength = 8;
+        const hasUpperCase = /[A-Z]/.test(password);
+        const hasLowerCase = /[a-z]/.test(password);
+        const hasNumbers = /\d/.test(password);
+        const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+        
+        const errors = [];
+        if (password.length < minLength) errors.push('at least 8 characters');
+        if (!hasUpperCase) errors.push('an uppercase letter');
+        if (!hasLowerCase) errors.push('a lowercase letter');
+        if (!hasNumbers) errors.push('a number');
+        if (!hasSpecialChar) errors.push('a special character');
+        
+        return {
+            isValid: errors.length === 0,
+            errors: errors
+        };
+    }
+
+    // Password validation
+    passwordInput.addEventListener('input', function() {
+        const password = this.value;
+        const validation = validatePassword(password);
+        
+        this.classList.remove('is-valid', 'is-invalid');
+        isPasswordValid = validation.isValid;
+        
+        if (!validation.isValid) {
+            this.classList.add('is-invalid');
+            passwordFeedback.textContent = `Password must include ${validation.errors.join(', ')}`;
+        } else {
+            this.classList.add('is-valid');
+        }
+        
+        // Check password match if confirm password has value
+        if (confirmPasswordInput.value) {
+            confirmPasswordInput.dispatchEvent(new Event('input'));
+        }
+        
+        updateSubmitButton();
+    });
+
+    // Confirm password validation
+    confirmPasswordInput.addEventListener('input', function() {
+        const password = passwordInput.value;
+        const confirmPassword = this.value;
+        
+        this.classList.remove('is-valid', 'is-invalid');
+        isPasswordMatch = false;
+        
+        if (confirmPassword) {
+            if (password === confirmPassword) {
+                this.classList.add('is-valid');
+                isPasswordMatch = true;
+            } else {
+                this.classList.add('is-invalid');
+                confirmPasswordFeedback.textContent = 'Passwords do not match';
+            }
+        }
+        
+        updateSubmitButton();
+    });
+
+    // Mobile number validation
+    mobileInput.addEventListener('input', function() {
+        const mobile = this.value.replace(/\D/g, '');
+        this.classList.remove('is-valid', 'is-invalid');
+        isMobileValid = false;
+        
+        if (mobile) {
+            if (/^[6-9]\d{9}$/.test(mobile)) {
+                this.classList.add('is-valid');
+                isMobileValid = true;
+            } else {
+                this.classList.add('is-invalid');
+                mobileFeedback.textContent = 'Enter a valid 10-digit mobile number starting with 6-9';
+            }
+        }
+        
+        updateSubmitButton();
+    });
+
+    // Username validation and availability check
+    usernameInput.addEventListener('input', function() {
+        clearTimeout(usernameTimer);
+        const username = this.value;
+
+        // Reset validation state
+        this.classList.remove('is-valid', 'is-invalid');
+        usernameFeedback.textContent = '';
+        isUsernameValid = false;
+        updateSubmitButton();
+
+        // Check format first
+        if (!username.match(/^[a-zA-Z0-9_-]{3,16}$/)) {
+            this.classList.add('is-invalid');
+            usernameFeedback.textContent = 'Username must be 3-16 characters and contain only letters, numbers, underscore, or hyphen.';
+            return;
+        }
+
+        // Debounce the API call
+        usernameTimer = setTimeout(async () => {
+            try {
+                const response = await fetch('/check-username', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ username: username })
+                });
+
+                const data = await response.json();
+                
+                if (data.available) {
+                    this.classList.add('is-valid');
+                    this.classList.remove('is-invalid');
+                    isUsernameValid = true;
+                } else {
+                    this.classList.add('is-invalid');
+                    this.classList.remove('is-valid');
+                    usernameFeedback.textContent = data.error || 'Username is already taken';
+                    isUsernameValid = false;
+                }
+                updateSubmitButton();
+            } catch (error) {
+                console.error('Error checking username:', error);
+                this.classList.add('is-invalid');
+                usernameFeedback.textContent = 'Error checking username availability';
+                isUsernameValid = false;
+                updateSubmitButton();
+            }
+        }, 500);
+    });
+
+    // Email validation and availability check
+    emailInput.addEventListener('input', function() {
+        clearTimeout(emailTimer);
+        const email = this.value;
+
+        // Reset validation state
+        this.classList.remove('is-valid', 'is-invalid');
+        emailFeedback.textContent = '';
+        isEmailValid = false;
+        updateSubmitButton();
+
+        // Basic format check
+        const emailPattern = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+        if (!email.match(emailPattern)) {
+            this.classList.add('is-invalid');
+            emailFeedback.textContent = 'Please enter a valid email address';
+            return;
+        }
+
+        // Additional validation
+        if (email.length > 254) {
+            this.classList.add('is-invalid');
+            emailFeedback.textContent = 'Email address is too long';
+            return;
+        }
+
+        const [localPart, domain] = email.split('@');
+        if (localPart.length > 64) {
+            this.classList.add('is-invalid');
+            emailFeedback.textContent = 'Local part of email is too long';
+            return;
+        }
+
+        // Debounce the API call
+        emailTimer = setTimeout(async () => {
+            try {
+                const response = await fetch('/check-email', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ email: email })
+                });
+
+                const data = await response.json();
+                
+                if (data.available) {
+                    this.classList.add('is-valid');
+                    this.classList.remove('is-invalid');
+                    isEmailValid = true;
+                } else {
+                    this.classList.add('is-invalid');
+                    this.classList.remove('is-valid');
+                    emailFeedback.textContent = data.error || 'Email is already registered';
+                    isEmailValid = false;
+                }
+                updateSubmitButton();
+            } catch (error) {
+                console.error('Error checking email:', error);
+                this.classList.add('is-invalid');
+                emailFeedback.textContent = 'Error checking email availability';
+                isEmailValid = false;
+                updateSubmitButton();
+            }
+        }, 500);
+    });
+
+    // Get user's location when the page loads
+    if ("geolocation" in navigator) {
+        navigator.geolocation.getCurrentPosition(function(position) {
+            document.getElementById('latitude').value = position.coords.latitude;
+            document.getElementById('longitude').value = position.coords.longitude;
+            
+            // Use the same geocoding service as in base.html
+            fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${position.coords.latitude}&longitude=${position.coords.longitude}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data) {
+                        document.getElementById('city').value = data.city || data.locality || '';
+                        document.getElementById('state').value = data.principalSubdivision || '';
+                    }
+                })
+                .catch(error => console.error('Error:', error));
+        }, function(error) {
+            console.error("Error getting location:", error);
+        });
+    }
+    
+    // Form validation
+    document.getElementById('registerForm').addEventListener('submit', function(e) {
+        if (!isUsernameValid || !isEmailValid || !isPasswordValid || !isPasswordMatch || !isMobileValid) {
+            e.preventDefault();
+            alert('Please fix the validation errors before submitting');
+            return;
+        }
+
+        const password = passwordInput.value;
+        const confirmPassword = confirmPasswordInput.value;
+        
+        if (password !== confirmPassword) {
+            e.preventDefault();
+            alert('Passwords do not match');
+            return;
+        }
+
+        const mobile = mobileInput.value;
+        if (!/^[6-9]\d{9}$/.test(mobile)) {
+            e.preventDefault();
+            alert('Please enter a valid 10-digit mobile number starting with 6-9');
+        }
+    });
+});
+</script>
+{% endblock %} 
